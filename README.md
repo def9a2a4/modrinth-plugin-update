@@ -52,4 +52,7 @@ This is an independent project, not affiliated with, endorsed by, or connected t
 any way. It just uses their [public API](https://docs.modrinth.com), which they very kindly
 provide for free. Thanks, Modrinth :)
 
-[modrinth.com](https://modrinth.com) · [github.com/modrinth](https://github.com/modrinth)
+Modrinth:
+
+- [modrinth.com](https://modrinth.com)
+- [github.com/modrinth](https://github.com/modrinth)
