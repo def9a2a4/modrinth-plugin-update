@@ -1,0 +1,7 @@
+{
+  "jar": "../mc-config/downloads/server/paper-26.1.2-74.jar",
+  "plugins": [],
+  "collections": ["7le3oTcg"],
+  "channels": ["release"],
+  "out": "plugins"
+}
