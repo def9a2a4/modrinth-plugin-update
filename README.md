@@ -33,6 +33,8 @@ have the jar handy. `-h` lists every option.
 What it does:
 
 - Downloads the newest version of each plugin for your exact Minecraft version and server type.
+  `channels` is in order of preference: `["release", "beta", "alpha"]` takes the newest release
+  if there is one, else the newest beta, else the newest alpha.
 - Plugins without one are skipped, then offered one by one (newest version for any Minecraft
   version, `[Y/n]`) if you're in a terminal.
 - When a plugin is updated, its old jars in the output folder are deleted. Jars Modrinth doesn't

@@ -45,12 +45,15 @@ both together: version and loader override what the jar says.
 
 config.json next to this script is used only when no config or flags are given. flags
 override the matching key of a config passed explicitly. files already in the output dir
-with the same name are skipped. when a plugin is downloaded, its other jars in the output
+with the same name and checksum are skipped. when a plugin is downloaded, its other jars in the output
 dir (matched by checksum on Modrinth) are deleted.
 
 plugins with no version for this Minecraft version are skipped on the first pass. then,
 if running in a terminal, each one is offered case by case: the newest version for this
 server type on any Minecraft version, download Y/n. anything still missing exits 1.
+
+channels are in order of preference: ["release", "beta", "alpha"] takes the newest release
+for your Minecraft version if there is one, else the newest beta, else the newest alpha.
 
 private collections need a Modrinth personal access token with the "Read collections"
 scope in the MODRINTH_TOKEN environment variable.
@@ -180,29 +183,45 @@ def installed(out: pathlib.Path) -> dict[str, list[pathlib.Path]]:
 def newest_version(
     project: str, loaders: list[str], channels: list[str], game_version: str | None
 ) -> dict[str, Any] | None:
-    """Return the newest version for these loaders in an allowed channel, or None.
+    """Return the version to use for these loaders, or None.
 
-    Limited to game_version if given, otherwise any Minecraft version.
+    With game_version, channels are in order of preference: the newest release if there is
+    one, else the newest beta, and so on. Without it (any Minecraft version), the newest in
+    any accepted channel wins, since an old release for an old Minecraft version is worse
+    than a recent beta.
     """
     params: dict[str, list[str]] = {"loaders": loaders}
     if game_version is not None:
         params["game_versions"] = [game_version]
     versions: list[dict[str, Any]] = api(f"/v2/project/{project}/version", **params)
     # Modrinth lists versions newest first.
-    return next((v for v in versions if v["version_type"] in channels), None)
+    if game_version is None:
+        return next((v for v in versions if v["version_type"] in channels), None)
+    for ch in channels:
+        v: dict[str, Any] | None = next(
+            (v for v in versions if v["version_type"] == ch), None
+        )
+        if v is not None:
+            return v
+    return None
 
 
 def download(
     version: dict[str, Any], out: pathlib.Path, old: list[pathlib.Path]
 ) -> str:
-    """Download a version's primary file into out unless it's already there, then delete the
-    project's other jars (old) so the server doesn't load two copies. Returns a status line.
+    """Download a version's primary file into out unless an identical file is already there,
+    then delete the project's other jars (old) so the server doesn't load two copies.
+    Returns a status line.
     """
     files: list[dict[str, Any]] = version["files"]
     f: dict[str, Any] = next((f for f in files if f["primary"]), files[0])
     dest: pathlib.Path = out / f["filename"]
     status: str = f"have {f['filename']}"
-    if not dest.exists():
+    # Compare checksums, not just names: some plugins reuse one filename for every build.
+    if (
+        not dest.exists()
+        or hashlib.sha1(dest.read_bytes()).hexdigest() != f["hashes"]["sha1"]
+    ):
         # Write then rename, so an interrupted download doesn't leave a file that looks complete.
         part: pathlib.Path = dest.with_name(dest.name + ".part")
         part.write_bytes(get(f["url"]))
@@ -286,7 +305,7 @@ def parse_args() -> argparse.Namespace:
         "--channels",
         nargs="+",
         choices=CHANNELS,
-        help="version types to accept (default: release)",
+        help="version types to accept, most preferred first (default: release)",
     )
     parser.add_argument(
         "-o", "--out", type=pathlib.Path, help="download directory (default: plugins)"
